@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { transcribeWithGemini } from "./gemini";
 
 const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:5000";
 
@@ -83,38 +84,20 @@ export default function VoiceTranscript({ token }: { token?: string }) {
           setRecording(false);
      };
 
-     const refineWithAI = async (blob: Blob, mimeType: string) => {
-          try {
-               setRefining(true);
-               const form = new FormData();
-               form.append(
-                    "audio",
-                    blob,
-                    mimeType.includes("mp4") ? "voice.mp4" : "voice.webm",
-               );
-
-               const res = await fetch(`${API_BASE}/api/transcribe`, {
-                    method: "POST",
-                    headers: token
-                         ? { Authorization: `Bearer ${token}` }
-                         : undefined,
-                    body: form,
-               });
-               const data = await res.json();
-               if (!res.ok)
-                    throw new Error(data.message || "Transcription failed");
-
-               // Don't overwrite if the user already started fixing the text
-               if (!editedRef.current) setText(data.text);
-          } catch (err: any) {
-               // Live text stays as a fallback
-               setError(
-                    `AI refine failed (${err.message}). Live transcript kept.`,
-               );
-          } finally {
-               setRefining(false);
-          }
-     };
+  const refineWithAI = async (blob: Blob, mimeType: string) => {
+       try {
+            setRefining(true);
+            const aiText = await transcribeWithGemini(blob, mimeType);
+            console.log("2. Gemini returned:", aiText);
+            if (!editedRef.current) setText(aiText);
+       } catch (err: any) {
+            setError(
+                 `AI refine failed (${err.message}). Live transcript kept.`,
+            );
+       } finally {
+            setRefining(false);
+       }
+  };
 
      return (
           <div
